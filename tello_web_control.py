@@ -7,6 +7,14 @@ from geometry_msgs.msg import Twist
 from std_msgs.msg import Empty, UInt8
 from tello_driver.msg import TelloStatus
 from time import sleep
+from capture import Capture
+
+def flip():
+    rate = rospy.Rate(1)
+    rate.sleep()
+    pub = rospy.Publisher('/tello/flip', UInt8, queue_size = 1)
+    pub.publish(1)
+    rate.sleep()
 
 global canLand, hori_speed, move_dis, last_time
 canLand = False
@@ -182,34 +190,75 @@ def status_callback(data):
         # is_battery_low
         if data.is_battery_low:
             print('battery_low')
-    
 
-if __name__ == '__main__':
-    rospy.init_node('tello_net_pub', anonymous=True)
+def main():
     land_sub = rospy.Subscriber('/tello/status', TelloStatus, status_callback)
+    # takeoff
     takeoff()
     
+    # foward down
     twist = Twist()
     twist.linear.x = 0.1
     twist.linear.z = -0.3
-    cmd_vel(80, twist, 0.4)
-    
-    twist = Twist()
-    twist.angular.z = -0.18
-    cmd_vel(40, twist)
+    cmd_vel(80, twist, 0.5)
 
+    # forward up
     twist = Twist()
     twist.linear.x = 0.1
     twist.linear.z = 0.3
     cmd_vel(80, twist, 0.7)
+
+    # foward down
+    twist = Twist()
+    twist.linear.x = 0.1
+    twist.linear.z = -0.3
+    cmd_vel(80, twist, 0.3)
+
+    # forward up
+    twist = Twist()
+    twist.linear.x = 0.1
+    twist.linear.z = 0.3
+    cmd_vel(80, twist, 0.5)
     
+    # rotate
+    twist = Twist()
+    twist.linear.x = 0.1    
+    twist.angular.z = -0.3
+    cmd_vel(40, twist)
+    
+    # flip
+    flip()
+
+    # rotate
+    twist = Twist()
+    twist.linear.x = 0.1    
+    twist.angular.z = -0.3
+    cmd_vel(40, twist)
+
+    # forward
+    twist = Twist()
+    twist.linear.x = 0.1
+    cmd_vel(40, twist)
+
+    #land
+    land()
+           
+if __name__ == '__main__':
+    rospy.init_node('tello_net_pub', anonymous=True)
+    # land_sub = rospy.Subscriber('/tello/status', TelloStatus, status_callback)
+    # main()
+    takeoff()
+
+    # # forward
     # twist = Twist()
     # twist.linear.x = 0.1
     # cmd_vel(40, twist)
-    
-    # twist = Twist()
-    # twist.angular.z = -0.36
-    # cmd_vel(20, twist)
-    
+
+    #capture
+    capture = Capture('/home/grant/img')
+    capture.run()
+
     land()
+
+    
     sys.exit(0)
