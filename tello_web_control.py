@@ -7,13 +7,19 @@ from geometry_msgs.msg import Twist
 from std_msgs.msg import Empty, UInt8
 from tello_driver.msg import TelloStatus
 from time import sleep
-from capture import Capture
+from contours import Contours
+from tello_driver.msg import test
 
-def flip():
+def flip(value):
     rate = rospy.Rate(1)
-    rate.sleep()
     pub = rospy.Publisher('/tello/flip', UInt8, queue_size = 1)
-    pub.publish(1)
+
+    while pub.get_num_connections() == 0:
+        pass
+
+    msg = UInt8()
+    msg.data = value
+    pub.publish(msg)
     rate.sleep()
 
 global canLand, hori_speed, move_dis, last_time
@@ -27,7 +33,7 @@ isTakeoff = False
 
 def takeoff_callback(data):
     global isTakeoff
-    if not isTakeoff and data.fly_mode == 6:
+    if not isTakeoff and data.is_flying == True:
         isTakeoff = True
         
 def takeoff():
@@ -50,7 +56,7 @@ def takeoff():
     while not isTakeoff:
         if cnt == 50:
             rospy.loginfo('Takeoff fail')
-            sys.exit(0)
+            # sys.exit(0)
             break
         rate.sleep()
         cnt += 1
@@ -191,7 +197,7 @@ def status_callback(data):
         if data.is_battery_low:
             print('battery_low')
 
-def main():
+def work1():
     land_sub = rospy.Subscriber('/tello/status', TelloStatus, status_callback)
     # takeoff
     takeoff()
@@ -208,57 +214,140 @@ def main():
     twist.linear.z = 0.3
     cmd_vel(80, twist, 0.7)
 
+    # #capture
+    # capture = Capture('/home/grant/img')
+    # capture.run()
+
+    # rotate
+    twist = Twist()
+    twist.angular.z = -0.3
+    cmd_vel(37, twist)
+
     # foward down
     twist = Twist()
     twist.linear.x = 0.1
-    twist.linear.z = -0.3
+    twist.linear.z = -0.5
     cmd_vel(80, twist, 0.3)
 
     # forward up
     twist = Twist()
     twist.linear.x = 0.1
-    twist.linear.z = 0.3
-    cmd_vel(80, twist, 0.5)
-    
-    # rotate
-    twist = Twist()
-    twist.linear.x = 0.1    
-    twist.angular.z = -0.3
-    cmd_vel(40, twist)
-    
-    # flip
-    flip()
+    twist.linear.z = 0.5
+    cmd_vel(80, twist, 0.7)
 
     # rotate
     twist = Twist()
-    twist.linear.x = 0.1    
-    twist.angular.z = -0.3
-    cmd_vel(40, twist)
+    twist.angular.z = 0.3
+    cmd_vel(43, twist)
+
+    # flip
+    flip(0)
 
     # forward
     twist = Twist()
-    twist.linear.x = 0.1
-    cmd_vel(40, twist)
+    twist.linear.x = 0.1   
+    cmd_vel(20, twist)
 
     #land
     land()
-           
-if __name__ == '__main__':
-    rospy.init_node('tello_net_pub', anonymous=True)
-    # land_sub = rospy.Subscriber('/tello/status', TelloStatus, status_callback)
-    # main()
-    takeoff()
 
-    # # forward
-    # twist = Twist()
-    # twist.linear.x = 0.1
-    # cmd_vel(40, twist)
+cmd_pub = rospy.Publisher('/tello/cmd_vel', Twist, queue_size = 10)
 
-    #capture
-    capture = Capture('/home/grant/img')
-    capture.run()
 
-    land()
+global check
+check = False
+global detectCnt
+detectCnt = 0
+global rect_time
+rect_time = 0
+global land_time
+land_time = -1
+
+global isGo
+isGo = False
+
+def callback(data):
+    global isGo
+    if not isTakeoff:
+        return
+    global land_time
+    if land_time != -1:
+        if (rospy.get_time() - land_time) > 100.0:
+            print('time out land')
+            msg = Twist()
+            cmd_pub.publish(msg)
+            land()
+    else:
+        land_time = rospy.get_time()
+        
+    global rect_time
+    if (rect_time == 0):
+        rect_time = rospy.get_time()
+            
+    rate = rospy.Rate(10)
+    global check
+    target = data.point
+    center = (480, 260)
+    dx = target[0] - center[0]
+    dy = target[1] - center[1]
+    
+    global detectCnt
+    if detectCnt > 1:
+        detectCnt = 0
+    else:
+        detectCnt += 1
+        return
+    print('data:', data)
+    print('dxdy:', dx, dy)
+
+    if not isGo:        
+        if rospy.get_time() - rect_time > 1.0:
+            rect_time = rospy.get_time()
+            print('move: empty')
+            msg = Twist()
+            cmd_pub.publish(msg)
+        else:
+            msg = Twist()
+            if abs(dx) < 20 and abs(dy) < 20:
+                print('inside')
+
+                msg.linear.x = 0.1
+                if target[2] == -1:
+                    msg = Twist()
+                    cmd_pub.publish(msg)
+                    rate.sleep()
+                    isGo = True
+                    print('isGo')
+            elif abs(dx) >= 50 or abs(dy) > 50:
+                print('out')
+                if dx != 0:
+                    y = -dx / abs(dx) * 0.2
+                if dy != 0:
+                    z = -dy / abs(dy) * 0.3
+                if target[2] != -1:
+                    msg.linear.x = 0.1                    
+                msg.linear.y = y
+                msg.linear.z = z
+                print('move: yz', y, z)
+            cmd_pub.publish(msg)
+
+    rate.sleep()
 
     
+if __name__ == '__main__':
+    rospy.init_node('tello_net_pub', anonymous=True)    
+    # Contours().start()
+    takeoff()
+    pub = rospy.Subscriber('/selfDefined', test, callback)
+    
+    while(not isGo):
+        pass
+    
+    # forward
+    twist = Twist()
+    twist.linear.x = 0.3
+    twist.linear.z = -0.1    
+    cmd_vel(40, twist)
+    print('end land')
+    land()
     sys.exit(0)
