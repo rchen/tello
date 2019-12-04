@@ -265,9 +265,13 @@ land_time = -1
 
 global isGo
 isGo = False
+global insideCnt
+insideCnt = 1
 
 def callback(data):
     global isGo
+    global insideCnt
+
     if not isTakeoff:
         return
     global land_time
@@ -287,7 +291,7 @@ def callback(data):
     rate = rospy.Rate(10)
     global check
     target = data.point
-    center = (480, 260)
+    center = (480, 240)
     dx = target[0] - center[0]
     dy = target[1] - center[1]
     
@@ -308,29 +312,50 @@ def callback(data):
             cmd_pub.publish(msg)
         else:
             msg = Twist()
-            if abs(dx) < 20 and abs(dy) < 20:
+            
+            if abs(dx) < 30 and abs(dy) < 30:
                 print('inside')
 
-                msg.linear.x = 0.1
                 if target[2] == -1:
-                    msg = Twist()
-                    cmd_pub.publish(msg)
-                    rate.sleep()
-                    isGo = True
-                    print('isGo')
-            elif abs(dx) >= 50 or abs(dy) > 50:
+                    if insideCnt > 4:
+                        msg = Twist()
+                        cmd_pub.publish(msg)
+                        rate.sleep()
+                        isGo = True
+                        print('isGo')
+                        rate.sleep()
+                        return
+                    else:
+                        insideCnt += 1
+                        return
+                else:
+                    msg.linear.x = 0.1
+            else:# abs(dx) >= 20 or abs(dy) >= 20:
+                insideCnt = 1
                 print('out')
-                if dx != 0:
-                    y = -dx / abs(dx) * 0.2
-                if dy != 0:
-                    z = -dy / abs(dy) * 0.3
-                if target[2] != -1:
-                    msg.linear.x = 0.1                    
-                msg.linear.y = y
-                msg.linear.z = z
-                print('move: yz', y, z)
-            cmd_pub.publish(msg)
+                rateY = 1
+                if abs(dx) > 150:
+                    rateY = 2
 
+                rateZ = 1
+                if abs(dy) > 150:
+                    rateZ = 1
+                    
+                if abs(dx) >= 45:
+                    y = -dx / abs(dx) * 0.1 * rateY
+                    msg.linear.y = y
+                if abs(dy) >= 30:
+                    z = -dy / abs(dy) * 0.2 * rateZ
+                    msg.linear.z = z
+                if target[2] != -1:
+                    msg.linear.x = 0.1
+                else:
+                    if abs(dx) >= 45 or abs(dy) > 30:
+                        msg.linear.x = -0.1
+
+            print('move: x: %s, y: %s, z: %s', msg.linear.x, msg.linear.y, msg.linear.z)
+            cmd_pub.publish(msg)
+    print("")
     rate.sleep()
 
     
@@ -345,9 +370,9 @@ if __name__ == '__main__':
     
     # forward
     twist = Twist()
-    twist.linear.x = 0.3
+    twist.linear.x = 0.2
     twist.linear.z = -0.1    
-    cmd_vel(40, twist)
+    cmd_vel(70, twist)
     print('end land')
     land()
     sys.exit(0)

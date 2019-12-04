@@ -47,7 +47,7 @@ class Contours(object):
                 pub.publish(test([int(old_center[0]), int(old_center[1]), 1]))
             else:
                 # cv2.putText(show_image, str(rect_width * rect_height, (10, 40), 5,2, 255))
-                if rect_width * rect_height > 960 * 720 * 0.3:
+                if rect_width * rect_height > 960 * 720 * 0.25:
                     pub.publish(test([int(old_center[0]), int(old_center[1]), -1]))
                     print('Quit')
                     # rospy.signal_shutdown('Quit')
