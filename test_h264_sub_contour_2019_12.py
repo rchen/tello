@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 
 import rospy
 from h264_image_transport.msg import H264Packet
@@ -52,7 +52,7 @@ class StandaloneVideoStream(object):
 stream = StandaloneVideoStream()
 
 global tag
-tag = 1
+tag = 0
 def callback(msg):
   #rospy.loginfo('frame: %d bytes' % len(msg.data))
   #if len(msg.data) > 1000:  
@@ -141,7 +141,7 @@ def main():
               pub.publish(test([int(old_center[0]),int(old_center[1]),1]))
         
         out.write(np.concatenate((blurred_img, show_image), axis=1))
-        cv2.imshow('result', np.concatenate((blurred_img, show_image), axis=1))
+        cv2.imshow('result', show_image)
         cv2.waitKey(1)
         if frame.time_base < 1.0/60:
           time_base = 1.0/60
