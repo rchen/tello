@@ -14,12 +14,14 @@ class sMachine(StateMachine):
     correction = State('Correction')
     forward = State('Forward')
     addSp = State('AddSp')
-
+    land = State('Land')
+    
     to_takeoff = takeoff.to(takeoff)
     to_hover = hover.to(hover) | addSp.to(hover) | correction.to(hover) | forward.to(hover) | takeoff.to(hover)
     to_correction = hover.to(correction) | correction.to(correction) | forward.to(correction)
     to_forward = hover.to(forward) | correction.to(forward) | forward.to(forward)
     to_addSp = forward.to(addSp) | correction.to(addSp)
+    to_land = land.to(land) | addSp.to(land)
     
 class MyModel(object):
     def __init__(self, state):
@@ -63,6 +65,13 @@ class MyModel(object):
         if self.isTakeoff:
             fsm.to_hover()
         self.rate.sleep()
+        
+    def land(self):
+        rate = rospy.Rate(10)
+        while self.canLand is not True:
+            msg = Empty()
+            self.land_pub.publish(msg)
+            rate.sleep()
         
     def run(self, fsm):
         #print(type(self))
@@ -133,17 +142,9 @@ class MyModel(object):
                 msg = Twist()
                 self.cmd_pub.publish(msg)
                 self.rate.sleep()
-                fsm.to_hover()
-
-def L():
-  global canLand
-
-  rate = rospy.Rate(10)
-  
-  while canLand is not True:
-    msg = Empty()
-    land_pub.publish(msg)
-    rate.sleep()
+                fsm.to_land()
+            elif fsm.is_land:
+                self.land()
 
 if __name__ == '__main__':
     rospy.init_node('h264_pub', anonymous=True)
