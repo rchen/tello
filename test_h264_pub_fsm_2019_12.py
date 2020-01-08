@@ -13,15 +13,17 @@ class sMachine(StateMachine):
     hover = State('Hover')
     correction = State('Correction')
     forward = State('Forward')
-    addSp = State('AddSp')
+    near = State('Near')
+    addSp = State('AddSp')    
     land = State('Land')
     
     to_takeoff = takeoff.to(takeoff)
     to_hover = hover.to(hover) | addSp.to(hover) | correction.to(hover) | forward.to(hover) | takeoff.to(hover)
-    to_correction = hover.to(correction) | correction.to(correction) | forward.to(correction)
-    to_forward = hover.to(forward) | correction.to(forward) | forward.to(forward)
-    to_addSp = forward.to(addSp) | correction.to(addSp)
+    to_correction = hover.to(correction) | correction.to(correction) | forward.to(correction) | near.to(correction)
+    to_forward = hover.to(forward) | correction.to(forward) | forward.to(forward) | near.to(correction)
+    to_addSp = forward.to(addSp) | correction.to(addSp) | near.to(addSp)
     to_land = land.to(land) | addSp.to(land)
+    to_near = hover.to(near) | correction.to(near)
     
 class MyModel(object):
     def __init__(self, state):
@@ -106,7 +108,7 @@ class MyModel(object):
                 if rospy.get_time() - self.rec_time > 1.0:
                     fsm.to_hover()
                 elif self.target[2] == -1:
-                    fsm.to_addSp()
+                    fsm.to_near()
                 elif abs(self.target[0] - self.center[0]) >= 60 or abs(self.target[1] - self.center[1]) >= 30:
                     fsm.to_correction()
                 elif abs(self.target[0] - self.center[0] < 60) and abs(self.target[1] - self.center[1] < 30):
@@ -119,11 +121,16 @@ class MyModel(object):
                 if rospy.get_time() - self.rec_time > 1.0:
                     fsm.to_hover()
                 elif self.target[2] == -1:
-                    fsm.to_addSp()
+                    fsm.to_near()
                 elif abs(self.target[0] - self.center[0]) >= 60 or abs(self.target[1] - self.center[1]) >= 30:
                     fsm.to_correction()
                 elif abs(self.target[0] - self.center[0] < 60) and abs(self.target[1] - self.center[1] < 30):
                     fsm.to_forward()
+            elif fsm.is_near:
+                if abs(self.target[0] - self.center[0] < 60) and abs(self.target[1] - self.center[1] < 30):
+                    fsm.to_addSp()
+                else:
+                    fsm.to_correction()                    
             elif fsm.is_addSp:
                 msg = Twist()
                 msg.linear.x = 0.2
