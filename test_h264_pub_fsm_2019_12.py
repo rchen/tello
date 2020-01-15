@@ -18,7 +18,7 @@ class sMachine(StateMachine):
     land = State('Land')
     
     to_takeoff = takeoff.to(takeoff)
-    to_hover = hover.to(hover) | addSp.to(hover) | correction.to(hover) | forward.to(hover) | takeoff.to(hover)
+    to_hover = hover.to(hover) | addSp.to(hover) | correction.to(hover) | forward.to(hover) | takeoff.to(hover) | hover.to(near)
     to_correction = hover.to(correction) | correction.to(correction) | forward.to(correction) | near.to(correction)
     to_forward = hover.to(forward) | correction.to(forward) | forward.to(forward) | near.to(correction)
     to_addSp = forward.to(addSp) | correction.to(addSp) | near.to(addSp)
@@ -91,7 +91,9 @@ class MyModel(object):
             elif fsm.is_hover:
                 self.cmd_pub.publish(Twist())
                 self.rate.sleep()
-                if (self.target[0] == -1 and self.target[1] == -1) or (rospy.get_time() - self.rec_time > 1.0):
+                if self.target[2] == -1:
+                    fsm.to_near()
+                elif (self.target[0] == -1 and self.target[1] == -1) or (rospy.get_time() - self.rec_time > 1.0):
                     fsm.to_hover()
                 elif abs(self.target[0] - self.center[0]) >= 60 or abs(self.target[1] - self.center[1]) >= 30:
                     fsm.to_correction()
@@ -121,7 +123,7 @@ class MyModel(object):
                 if rospy.get_time() - self.rec_time > 1.0:
                     fsm.to_hover()
                 elif self.target[2] == -1:
-                    fsm.to_near()
+                    fsm.to_hover()
                 elif abs(self.target[0] - self.center[0]) >= 60 or abs(self.target[1] - self.center[1]) >= 30:
                     fsm.to_correction()
                 elif abs(self.target[0] - self.center[0] < 60) and abs(self.target[1] - self.center[1] < 30):
